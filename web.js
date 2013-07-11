@@ -4,7 +4,7 @@ var objFs = require('fs');
 
 var app = express.createServer(express.logger());
 
-app.get('/', function(request, response) {A
+app.get('/', function(request, response) {
   // Open the file buffer (can handle more than just ascii)
   var objBufFile = objFs.readFileSync('index.html');
   // Commented out for HW 3 index.html input
