@@ -26,6 +26,7 @@ var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var objRestler = require('restler');
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -61,14 +62,49 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+// This function crafted from previous HW example of Yahoofinance API
+var objFunctionReturn = function(strUrlFile, strChecksFile) {
+    var objCallbackOnUrlLoad = function(result, response) {
+        if (result instanceof Error) {
+            console.error('Error: ' + util.format(response.message));
+        } else {
+            // write the file locally, so we can reuse existing function
+            fs.writeFileSync(strUrlFile,result);
+            // this part repeats some of what used to go on in 'main'
+            var checkJson = checkHtmlFile(strUrlFile, strChecksFile);
+            var outJson = JSON.stringify(checkJson, null, 4);
+            console.log(outJson);
+        } // end if else result 
+    } // end callback function 
+    return objCallbackOnUrlLoad;
+}
+
+// Foregoing malformed URL checks
+var objCheckUrl = function(strUrl, strChecksFile) {
+    // a local copy of url files may cause issues overwriting, especially with index.html
+    var strUrlFile = strUrl.replace(/[\/\:\.]/g,'_') + ((new Date()).getTime());
+    // create the callback function reference for restler
+    var objCallbackOnUrlLoad = objFunctionReturn(strUrlFile, strChecksFile);
+    // asynchronous call so as not to bog process down in idle loop
+    objRestler.get(strUrl).on('complete', objCallbackOnUrlLoad);
+}
+
 if(require.main == module) {
     program
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
+        .option('-u, --urlin <input_url>', 'URL to check')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+
+    // first check for Url input, because there is no default for this - if empty run with file
+    if (program.urlin) {
+      objCheckUrl(program.urlin, program.checks);
+    } else {
+      var checkJson = checkHtmlFile(program.file, program.checks);
+      var outJson = JSON.stringify(checkJson, null, 4);
+      console.log(outJson);
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
+    exports.checkUrl = objCheckUrl;
 }
